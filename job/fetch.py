@@ -43,6 +43,8 @@ MARKET_SLICE = 0.15
 OUTLIER = 1.5
 HISTORY_DAYS = 7
 FORMAT_VERSION = 1
+# Linen Cloth, Wool Cloth, Copper Ore, Light Leather, Peacebloom
+PROBE_ITEMS = (2589, 2592, 2770, 2318, 2447)
 
 
 def log(*args):
@@ -232,14 +234,21 @@ def probe():
     index = get(tok, "/data/wow/ruleset/%d/auctions/" % RULESET)
     for h in index.get("auctions", []):
         hid = h.get("id")
-        counts = []
+        counts, listings = [], []
         for suffix in ("", "/commodities"):
             try:
                 body = get(tok, "/data/wow/ruleset/%d/auctions/%d%s" % (RULESET, hid, suffix))
                 counts.append(len(body.get("auctions") or []))
+                listings.extend(body.get("auctions") or [])
             except urllib.error.HTTPError as e:
                 counts.append("HTTP %d" % e.code)
-        print("- %s %s: %s item auctions, %s commodity auctions" % (hid, h.get("name"), counts[0], counts[1]))
+        prices = unit_prices(listings)
+        # Cheapest buyout of a few common goods, to match a house to what a
+        # player sees in game.
+        sample = ", ".join("%d: %s" % (iid, min(p for p, _ in prices[iid]) if iid in prices else "-")
+                           for iid in PROBE_ITEMS)
+        print("- %s %s: %s item auctions, %s commodity auctions; cheapest %s"
+              % (hid, h.get("name"), counts[0], counts[1], sample))
 
 
 if __name__ == "__main__":
