@@ -50,7 +50,7 @@ func showMainWindow(app *App) {
 			AutoFocus: true,
 			DataPath:  filepath.Join(filepath.Dir(configPath()), "webview"),
 			WindowOptions: webview2.WindowOptions{
-				Title: "K-Market Prices", Width: 460, Height: 620, IconId: 1, Center: true,
+				Title: "K-Market Prices", Width: 460, Height: 760, IconId: 1, Center: true,
 			},
 		})
 		if w == nil {
@@ -59,7 +59,7 @@ func showMainWindow(app *App) {
 			openPath("https://developer.microsoft.com/microsoft-edge/webview2/")
 			return
 		}
-		w.SetSize(460, 620, webview2.HintFixed)
+		w.SetSize(460, 760, webview2.HintFixed)
 		bind(w, app)
 		w.SetHtml(strings.Replace(uiHTML, "{{ICON}}", base64.StdEncoding.EncodeToString(iconPNG), 1))
 		winMu.Lock()
