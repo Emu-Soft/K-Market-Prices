@@ -1,0 +1,47 @@
+name: Prices loop
+
+# Hourly prices. GitHub's cron never fired for this repo, so one run stays up
+# for about 5 hours, publishing a snapshot each hour, then starts the next
+# run itself. The 6-hourly schedule only restarts the loop if it ever stops;
+# the concurrency group keeps at most one loop running and one waiting.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 */6 * * *"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: prices-loop
+  cancel-in-progress: false
+
+jobs:
+  loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish every hour
+        env:
+          BNET_CLIENT_ID: ${{ secrets.BNET_CLIENT_ID }}
+          BNET_CLIENT_SECRET: ${{ secrets.BNET_CLIENT_SECRET }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in 1 2 3 4 5; do
+            start=$(date +%s)
+            ./job/publish.sh || echo "::warning::run $i failed"
+            if [ "$i" -lt 5 ]; then
+              left=$((3600 - ($(date +%s) - start)))
+              [ "$left" -gt 0 ] && sleep "$left"
+            fi
+          done
+
+      - name: Start the next loop
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run loop.yml --repo "${{ github.repository }}" --ref main

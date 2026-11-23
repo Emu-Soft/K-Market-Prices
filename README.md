@@ -4,7 +4,7 @@ Auction house prices for K-Market, the market window in [Kain-UI Forever](https:
 
 Two parts:
 
-- **Price job** (`job/`): runs every hour on GitHub Actions. It reads the PvP auction houses from Blizzard's Battle.net API and publishes `Data.lua` and `meta.json` on the [`data`](../../tree/data) branch.
+- **Price job** (`job/`): runs every hour on GitHub Actions (`loop.yml`: one run publishes hourly for 5 hours, then starts the next, because GitHub's cron didn't fire for this repo). It reads the PvP auction houses from Blizzard's Battle.net API and publishes `Data.lua` and `meta.json` on the [`data`](../../tree/data) branch.
 - **Desktop app** (`app/`): a small Windows tray app. Every 10 minutes it checks the `data` branch and, when a new snapshot is out, writes it into the `KainUIForever_Prices` addon folder. The game picks it up at the next login or `/reload`.
 
 Players don't need a Battle.net developer account. Guildmates without the app get prices shared in game by K-UI.
