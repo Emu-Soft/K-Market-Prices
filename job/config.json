@@ -1,0 +1,9 @@
+{
+  "region": "us",
+  "ruleset": 1,
+  "houses": {
+    "Alliance": 110,
+    "Horde": 113,
+    "Blackwater": 116
+  }
+}

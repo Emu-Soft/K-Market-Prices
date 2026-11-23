@@ -1,0 +1,58 @@
+name: Prices
+
+# Every hour: pull the Forever auction houses and publish Data.lua on the
+# `data` branch. The branch is rewritten as one commit each run so the repo
+# does not grow by a megabyte an hour; history/ is carried over from the
+# previous run for the 7-day average.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prices
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore last snapshot
+        run: |
+          mkdir out
+          if git ls-remote --exit-code origin data >/dev/null; then
+            git fetch --depth 1 origin data
+            git --work-tree=out checkout FETCH_HEAD -- .
+          fi
+
+      - name: Fetch prices
+        env:
+          BNET_CLIENT_ID: ${{ secrets.BNET_CLIENT_ID }}
+          BNET_CLIENT_SECRET: ${{ secrets.BNET_CLIENT_SECRET }}
+        run: python3 job/fetch.py out
+
+      - name: Summary
+        run: |
+          echo '### Snapshot' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat out/meta.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo '### House index' >> "$GITHUB_STEP_SUMMARY"
+          python3 -c "import json;[print('- %s: %s' % (h.get('id'), h.get('name'))) for h in json.load(open('out/houses.json')).get('auctions', [])]" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish data branch
+        run: |
+          cd out
+          git init -q -b data
+          git config user.name "Kain-Mercer"
+          git config user.email "339178444+Kain-Mercer@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Prices $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" data

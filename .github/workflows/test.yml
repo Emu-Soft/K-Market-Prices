@@ -1,0 +1,30 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 job/test/test_fetch.py
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: app/go.mod
+          cache-dependency-path: app/go.sum
+      - name: Test
+        working-directory: app
+        run: go test ./...
+      - name: Build Windows exe
+        working-directory: app
+        run: GOOS=windows GOARCH=amd64 go build -ldflags "-H=windowsgui -s -w" -o K-Market-Prices.exe .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: K-Market-Prices-windows
+          path: app/K-Market-Prices.exe
