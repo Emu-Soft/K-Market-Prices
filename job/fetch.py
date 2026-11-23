@@ -245,7 +245,8 @@ def probe():
         prices = unit_prices(listings)
         # Cheapest buyout of a few common goods, to match a house to what a
         # player sees in game.
-        sample = ", ".join("%d: %s" % (iid, min(p for p, _ in prices[iid]) if iid in prices else "-")
+        sample = ", ".join("%d: %s" % (iid, "%dc x%d" % (min(p for p, _ in prices[iid]), sum(q for _, q in prices[iid]))
+                                          if iid in prices else "-")
                            for iid in PROBE_ITEMS)
         print("- %s %s: %s item auctions, %s commodity auctions; cheapest %s"
               % (hid, h.get("name"), counts[0], counts[1], sample))
