@@ -9,6 +9,11 @@ on:
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
+    inputs:
+      probe:
+        description: "Only list every house's auction counts (writes nothing)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -18,7 +23,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  probe:
+    if: inputs.probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe houses
+        env:
+          BNET_CLIENT_ID: ${{ secrets.BNET_CLIENT_ID }}
+          BNET_CLIENT_SECRET: ${{ secrets.BNET_CLIENT_SECRET }}
+        run: |
+          echo '### Houses' >> "$GITHUB_STEP_SUMMARY"
+          python3 job/fetch.py --probe | tee -a "$GITHUB_STEP_SUMMARY"
+
   fetch:
+    if: ${{ !inputs.probe }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

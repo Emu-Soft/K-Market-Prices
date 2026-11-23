@@ -225,5 +225,25 @@ def main(out_dir):
     log("wrote Data.lua: %d bytes" % len(body))
 
 
+def probe():
+    """Prints listing counts for every house in the index (to find which
+    houses belong to which server). Writes nothing."""
+    tok = token()
+    index = get(tok, "/data/wow/ruleset/%d/auctions/" % RULESET)
+    for h in index.get("auctions", []):
+        hid = h.get("id")
+        counts = []
+        for suffix in ("", "/commodities"):
+            try:
+                body = get(tok, "/data/wow/ruleset/%d/auctions/%d%s" % (RULESET, hid, suffix))
+                counts.append(len(body.get("auctions") or []))
+            except urllib.error.HTTPError as e:
+                counts.append("HTTP %d" % e.code)
+        print("- %s %s: %s item auctions, %s commodity auctions" % (hid, h.get("name"), counts[0], counts[1]))
+
+
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "out")
+    if sys.argv[1:2] == ["--probe"]:
+        probe()
+    else:
+        main(sys.argv[1] if len(sys.argv) > 1 else "out")
