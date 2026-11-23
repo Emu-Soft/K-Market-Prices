@@ -22,9 +22,11 @@ For each item, in copper per unit:
 
 ## Using the app
 
-1. Download `K-Market-Prices.exe` and run it. A gold K coin appears in the tray.
-2. It finds the WoW: Forever folder with K-UI in it. If it doesn't, right-click the coin, choose **Open settings file**, and set `addonsDir` to your `...\Interface\AddOns` folder.
-3. Tick **Start with Windows** to keep prices current without thinking about it.
+1. Download `K-Market-Prices.exe` and run it. Its window shows when prices were last updated, how many items each auction house has, and the AddOns folder it writes to. A gold K coin stays in the tray.
+2. It finds the WoW: Forever folder with K-UI in it. If it doesn't, paste your `..._forever_\Interface\AddOns` folder into the window and press **Use this folder**.
+3. Turn on **Start with Windows** to keep prices current without thinking about it. Closing the window leaves it running in the tray; click the coin to open it again.
+
+The window uses Microsoft Edge WebView2, which Windows 10 and 11 already have.
 
 ## Data format
 
@@ -43,5 +45,7 @@ KUI_PRICE_DATA = {
 ## Running the job
 
 The workflow needs two repository secrets, `BNET_CLIENT_ID` and `BNET_CLIENT_SECRET`, from a client made at [develop.battle.net](https://develop.battle.net/access/clients). Houses and region are set in `job/config.json`. Each run's summary lists the house index the API returned.
+
+The exe icon comes from `app/rsrc_windows_amd64.syso`, made with `rsrc -ico icon.ico` (github.com/akavel/rsrc) after `python3 tools/icon.py`.
 
 Local run: `BNET_CLIENT_ID=... BNET_CLIENT_SECRET=... python3 job/fetch.py out`. Tests: `python3 job/test/test_fetch.py` and `cd app && go test ./...`.

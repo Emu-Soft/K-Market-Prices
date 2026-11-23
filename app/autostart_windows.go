@@ -8,6 +8,8 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
+const canAutostart = true
+
 const runKey = `Software\Microsoft\Windows\CurrentVersion\Run`
 const runName = "K-Market Prices"
 
@@ -34,5 +36,5 @@ func SetAutostart(on bool) error {
 	if err != nil {
 		return err
 	}
-	return k.SetStringValue(runName, `"`+exe+`"`)
+	return k.SetStringValue(runName, `"`+exe+`" --tray`)
 }

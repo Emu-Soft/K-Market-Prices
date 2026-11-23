@@ -2,5 +2,7 @@
 
 package main
 
-func AutostartEnabled() bool    { return false }
+const canAutostart = false
+
+func AutostartEnabled() bool     { return false }
 func SetAutostart(on bool) error { return nil }

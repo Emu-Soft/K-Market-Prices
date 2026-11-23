@@ -1,0 +1,106 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>K-Market Prices</title>
+<style>
+:root{--bg:#0e1313;--panel:#161c1c;--raised:#1d2323;--line:#434949;--text:#ecf4f3;--low:#b8bfbf;--gold:#e0bb00;--green:#08d36b;--red:#fd392e}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 "Segoe UI",system-ui,sans-serif;user-select:none;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--raised)}
+header img{width:30px;height:30px}
+header h1{font-size:16px;margin:0;font-weight:600}
+header .ver{margin-left:auto;color:var(--low);font-size:11px}
+main{padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--raised);border-radius:6px;padding:12px}
+.title{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--low);margin-bottom:8px}
+.state{display:flex;gap:10px;align-items:flex-start}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex:none;background:var(--low)}
+.ok .dot{background:var(--green)} .error .dot,.nofolder .dot{background:var(--red)} .checking .dot{background:var(--gold);animation:p 1s infinite alternate}
+@keyframes p{to{opacity:.3}}
+.big{font-size:20px;font-weight:600;color:var(--gold)}
+.row{display:flex;justify-content:space-between;gap:8px;padding:3px 0}
+.row span:first-child{color:var(--low)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chip{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:2px 9px;font-size:12px}
+.chip b{color:var(--gold);font-weight:600}
+.path{font-family:Consolas,monospace;font-size:11.5px;color:var(--text);word-break:break-all;background:var(--bg);border:1px solid var(--raised);border-radius:4px;padding:6px 8px}
+.good{color:var(--green)} .bad{color:var(--red)} .low{color:var(--low)}
+input[type=text]{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:6px 8px;font:inherit;font-size:12px;user-select:text}
+input[type=text]:focus{outline:none;border-color:var(--gold)}
+.btns{display:flex;gap:8px;margin-top:8px}
+button{background:var(--raised);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:6px 12px;font:inherit;cursor:pointer}
+button:hover{border-color:var(--gold)}
+button.primary{background:var(--gold);color:#1a1500;border-color:var(--gold);font-weight:600}
+button.primary:hover{filter:brightness(1.1)}
+button:disabled{opacity:.5;cursor:default}
+.toggle{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
+.sw{position:relative;width:34px;height:18px;flex:none}
+.sw input{opacity:0;width:0;height:0}
+.sw i{position:absolute;inset:0;background:var(--raised);border:1px solid var(--line);border-radius:9px;cursor:pointer;transition:.15s}
+.sw i:before{content:"";position:absolute;width:12px;height:12px;left:2px;top:2px;border-radius:50%;background:var(--low);transition:.15s}
+.sw input:checked+i{background:#3a3000;border-color:var(--gold)}
+.sw input:checked+i:before{transform:translateX(16px);background:var(--gold)}
+.msg{font-size:12px;margin-top:6px;min-height:16px}
+footer{padding:0 16px;color:var(--low);font-size:11.5px}
+a{color:var(--gold);cursor:pointer;text-decoration:none}
+</style></head>
+<body>
+<header><img src="data:image/png;base64,{{ICON}}" alt=""><h1>K-Market Prices</h1><span class="ver" id="ver"></span></header>
+<main>
+ <div class="card" id="stateCard">
+  <div class="state"><div class="dot"></div><div style="flex:1"><div id="msg">Starting...</div></div></div>
+ </div>
+ <div class="card">
+  <div class="title">Prices</div>
+  <div class="row"><span>Snapshot</span><span id="snap">-</span></div>
+  <div class="row"><span>Items</span><span class="big" id="items">-</span></div>
+  <div class="row"><span>Region</span><span id="region">-</span></div>
+  <div class="chips" id="houses"></div>
+  <div class="row" style="margin-top:6px"><span>Last check</span><span id="checked">-</span></div>
+  <div class="btns"><button class="primary" id="refresh">Refresh now</button></div>
+ </div>
+ <div class="card">
+  <div class="title">AddOns folder</div>
+  <div class="path" id="dir">-</div>
+  <div class="msg" id="dirInfo"></div>
+  <input type="text" id="dirInput" placeholder="Paste a different folder, e.g. C:\...\World of Warcraft\_forever_" spellcheck="false">
+  <div class="btns"><button id="saveDir">Use this folder</button><button id="openDir">Open folder</button></div>
+  <div class="msg bad" id="dirErr"></div>
+ </div>
+ <div class="card">
+  <div class="title">Settings</div>
+  <div class="toggle" id="autoRow"><span>Start with Windows (in the tray)</span><label class="sw"><input type="checkbox" id="auto"><i></i></label></div>
+  <div class="row"><span>Guild sharing</span><span class="low">Not available yet</span></div>
+ </div>
+</main>
+<footer>Closing this window keeps prices updating in the tray. Right-click the gold coin to quit. <a id="repo">About</a></footer>
+<script>
+const $=id=>document.getElementById(id);
+async function kmRefresh(){
+ let s; try{ s=JSON.parse(await kmStatus()); }catch(e){ return; }
+ $("ver").textContent="v"+s.version;
+ $("stateCard").className="card "+s.state;
+ $("msg").textContent=s.message;
+ $("snap").textContent=s.snapshotT?(s.snapshotAt+" ("+s.age+")"):"-";
+ $("items").textContent=s.items?s.items.toLocaleString():"-";
+ $("region").textContent=s.region||"-";
+ const h=$("houses"); h.innerHTML="";
+ (s.houses||[]).forEach(x=>{const c=document.createElement("span");c.className="chip";c.innerHTML="";c.append(x.faction+" ");const b=document.createElement("b");b.textContent=x.items.toLocaleString();c.append(b);c.title="Auction house "+x.id;h.append(c);});
+ $("checked").textContent=s.lastCheck?(s.lastCheck+", next "+s.nextCheck):"-";
+ $("refresh").disabled=s.state==="checking";
+ $("dir").textContent=s.addonsDir||"Not found";
+ const info=$("dirInfo");
+ if(!s.addonsDir){info.className="msg bad";info.textContent="Paste your ..._forever_\\Interface\\AddOns folder below.";}
+ else if(!s.kuiFound){info.className="msg bad";info.textContent="K-UI isn't in this folder. Is it the right game folder?";}
+ else{info.className="msg good";info.textContent=s.installed?"K-UI found. Prices installed.":"K-UI found.";}
+ $("openDir").disabled=!s.addonsDir;
+ $("autoRow").style.display=s.canAutostart?"":"none";
+ if(document.activeElement!==$("auto")) $("auto").checked=s.autostart;
+}
+window.kmRefresh=kmRefresh;
+$("refresh").onclick=()=>{kmCheck();setTimeout(kmRefresh,100)};
+$("openDir").onclick=()=>kmOpenFolder();
+$("saveDir").onclick=async()=>{const e=await kmSetFolder($("dirInput").value);$("dirErr").textContent=e||"";if(!e){$("dirInput").value="";}kmRefresh();};
+$("auto").onchange=async e=>{const r=await kmAutostart(e.target.checked);if(r){$("dirErr").textContent=r;}kmRefresh();};
+$("repo").onclick=()=>kmOpenLink("https://github.com/Emu-Soft/K-Market-Prices");
+kmRefresh(); setInterval(kmRefresh,5000);
+</script>
+</body></html>
