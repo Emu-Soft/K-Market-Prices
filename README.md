@@ -22,7 +22,7 @@ For each item, in copper per unit:
 
 ## Using the app
 
-1. Download `K-Market-Prices.exe` and run it. Its window shows when prices were last updated, how many items each auction house has, and the AddOns folder it writes to. A gold K coin stays in the tray.
+1. Download `K-Market-Prices.exe` from the [latest release](https://github.com/Emu-Soft/K-Market-Prices/releases/latest) and run it. Its window shows when prices were last updated, how many items each auction house has, and the AddOns folder it writes to. A gold K coin stays in the tray.
 2. It finds the WoW: Forever folder with K-UI in it. If it doesn't, paste your `..._forever_\Interface\AddOns` folder into the window and press **Use this folder**.
 3. Turn on **Start with Windows** to keep prices current without thinking about it. Closing the window leaves it running in the tray; click the coin to open it again.
 

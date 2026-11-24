@@ -1,0 +1,66 @@
+# Publish a release: Actions tab -> "Publish release" -> Run workflow.
+# Reads the version from app/main.go, runs the tests, builds the Windows
+# exe and publishes it as release v<version>. Refuses if that version was
+# already released.
+name: Publish release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: app/go.mod
+          cache-dependency-path: app/go.sum
+
+      - name: Read the version
+        id: version
+        run: |
+          v=$(sed -n 's/^const Version = "\([0-9.]*\)"/\1/p' app/main.go)
+          if [ -z "$v" ]; then echo "No 'const Version' in app/main.go"; exit 1; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Version $v"
+
+      - name: Stop if this version is already released
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "v${{ steps.version.outputs.version }} is already released. Bump Version in app/main.go first."
+            exit 1
+          fi
+
+      - name: Test
+        run: |
+          python3 job/test/test_fetch.py
+          cd app && go test ./...
+
+      - name: Build Windows exe
+        working-directory: app
+        run: GOOS=windows GOARCH=amd64 go build -ldflags "-H=windowsgui -s -w" -o K-Market-Prices.exe .
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${{ steps.version.outputs.version }}"
+          cat > notes.md <<'NOTES'
+          ## Installing
+          1. Download **K-Market-Prices.exe** below and run it. Its window shows when prices were last updated, how many items each auction house has, and the AddOns folder it writes to. A gold K coin stays in the tray.
+          2. It finds the WoW: Forever folder with K-UI in it. If it doesn't, paste your `..._forever_\Interface\AddOns` folder into the window and press **Use this folder**.
+          3. Turn on **Start with Windows** to keep prices current. In game, `/km prices` shows how fresh they are.
+
+          The window uses Microsoft Edge WebView2, which Windows 10 and 11 already have.
+          NOTES
+          sed -i 's/^          //' notes.md
+          gh release create "v$v" app/K-Market-Prices.exe \
+            --title "K-Market Prices $v" \
+            --notes-file notes.md \
+            --target "$GITHUB_SHA"
