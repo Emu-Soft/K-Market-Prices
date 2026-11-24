@@ -1,7 +1,8 @@
 // K-Market Prices: keeps K-Market's auction prices current.
 //
 // It checks the hourly price feed every few minutes and, when a new
-// snapshot is out, writes it into the KainUIForever_Prices helper addon.
+// snapshot is out, writes it into K-UI's KMarketPriceData.lua
+// (or the KainUIForever_Prices helper addon for K-UI older than 1.0.369).
 // The game reads it at the next login or /reload. A small window shows
 // what it's doing; closing the window leaves it running in the tray.
 package main
@@ -19,7 +20,7 @@ import (
 	"fyne.io/systray"
 )
 
-const Version = "0.2.0"
+const Version = "0.3.0"
 
 //go:embed icon.ico
 var iconICO []byte

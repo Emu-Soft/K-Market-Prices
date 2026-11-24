@@ -10,11 +10,18 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
-// HelperAddon is the folder the app owns inside Interface/AddOns. K-UI lists
-// it as an optional dependency and reads KUI_PRICE_DATA from it at login.
+// PriceFile is the file the app writes inside K-UI's own folder. K-UI
+// 1.0.369 and later list it in their toc and read KUI_PRICE_DATA from it at
+// login; K-UI ships it holding no prices.
+const PriceFile = "KMarketPriceData.lua"
+
+// HelperAddon is the separate addon older K-UI versions (1.0.365-1.0.368)
+// read the prices from. It is still written for those, and removed once
+// K-UI reads its own PriceFile.
 const HelperAddon = "KainUIForever_Prices"
 
 const helperToc = `## Interface: 16001
@@ -46,7 +53,7 @@ func (m Meta) Items() int {
 	return n
 }
 
-// Syncer downloads the feed and keeps the helper addon's Data.lua current.
+// Syncer downloads the feed and keeps the price file current.
 type Syncer struct {
 	FeedURL   string // folder URL holding meta.json and Data.lua, ending in "/"
 	AddOnsDir string
@@ -98,6 +105,52 @@ func writeAtomic(path string, data []byte) error {
 	return os.Rename(tmp, path)
 }
 
+// KUIReadsOwnFile says whether the installed K-UI lists PriceFile in its toc.
+func KUIReadsOwnFile(addons string) bool {
+	toc, err := os.ReadFile(filepath.Join(addons, KUIFolder, KUIFolder+".toc"))
+	return err == nil && strings.Contains(string(toc), PriceFile)
+}
+
+// Target is the file the prices go to, set up and ready: PriceFile inside
+// K-UI's folder (removing the old helper addon), or the helper addon's
+// Data.lua for an older K-UI.
+func (s *Syncer) Target() (string, error) {
+	if KUIReadsOwnFile(s.AddOnsDir) {
+		s.removeHelper()
+		return filepath.Join(s.AddOnsDir, KUIFolder, PriceFile), nil
+	}
+	dir := filepath.Join(s.AddOnsDir, HelperAddon)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	toc := filepath.Join(dir, HelperAddon+".toc")
+	if old, _ := os.ReadFile(toc); string(old) != helperToc {
+		if err := writeAtomic(toc, []byte(helperToc)); err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(dir, "Data.lua"), nil
+}
+
+// removeHelper deletes the old helper addon folder, but only when it holds
+// nothing except the two files this app wrote there.
+func (s *Syncer) removeHelper() {
+	dir := filepath.Join(s.AddOnsDir, HelperAddon)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() || (e.Name() != HelperAddon+".toc" && e.Name() != "Data.lua") {
+			return
+		}
+	}
+	for _, e := range entries {
+		os.Remove(filepath.Join(dir, e.Name()))
+	}
+	os.Remove(dir)
+}
+
 // Check fetches meta.json and, when the snapshot differs from what is on
 // disk, downloads Data.lua, verifies its hash and installs it.
 func (s *Syncer) Check() (Result, error) {
@@ -115,17 +168,10 @@ func (s *Syncer) Check() (Result, error) {
 	if res.Meta.V != 1 {
 		return res, fmt.Errorf("feed format %d is newer than this app; please update it", res.Meta.V)
 	}
-	dir := filepath.Join(s.AddOnsDir, HelperAddon)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	data, err := s.Target()
+	if err != nil {
 		return res, err
 	}
-	toc := filepath.Join(dir, HelperAddon+".toc")
-	if old, _ := os.ReadFile(toc); string(old) != helperToc {
-		if err := writeAtomic(toc, []byte(helperToc)); err != nil {
-			return res, err
-		}
-	}
-	data := filepath.Join(dir, "Data.lua")
 	if fileSHA(data) == res.Meta.SHA256 {
 		return res, nil
 	}

@@ -121,6 +121,7 @@ type Status struct {
 	AddOnsDir  string        `json:"addonsDir"`
 	KUIFound   bool          `json:"kuiFound"`
 	Installed  bool          `json:"installed"`
+	InKUI      bool          `json:"inKui"`
 	Autostart  bool          `json:"autostart"`
 	CanAuto    bool          `json:"canAutostart"`
 }
@@ -132,8 +133,14 @@ func (a *App) Status() Status {
 	if s.AddOnsDir != "" {
 		_, err := os.Stat(filepath.Join(s.AddOnsDir, KUIFolder))
 		s.KUIFound = err == nil
-		_, err = os.Stat(filepath.Join(s.AddOnsDir, HelperAddon, "Data.lua"))
-		s.Installed = err == nil
+		if KUIReadsOwnFile(s.AddOnsDir) {
+			fi, err := os.Stat(filepath.Join(s.AddOnsDir, KUIFolder, PriceFile))
+			s.Installed = err == nil && fi.Size() > 64
+			s.InKUI = true
+		} else {
+			_, err = os.Stat(filepath.Join(s.AddOnsDir, HelperAddon, "Data.lua"))
+			s.Installed = err == nil
+		}
 	}
 	m := a.last.Meta
 	if m.T != 0 {

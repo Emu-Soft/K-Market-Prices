@@ -70,7 +70,7 @@ a{color:var(--gold);cursor:pointer;text-decoration:none}
  <div class="card">
   <div class="title">Settings</div>
   <div class="toggle" id="autoRow"><span>Start with Windows (in the tray)</span><label class="sw"><input type="checkbox" id="auto"><i></i></label></div>
-  <div class="row"><span>Guild sharing</span><span class="low">Not available yet</span></div>
+  <div class="row"><span>Guild sharing</span><span class="low">On, in game (K-UI 1.0.369+)</span></div>
  </div>
 </main>
 <footer>Closing this window keeps prices updating in the tray. Right-click the gold coin to quit. <a id="repo">About</a></footer>
@@ -92,7 +92,7 @@ async function kmRefresh(){
  const info=$("dirInfo");
  if(!s.addonsDir){info.className="msg bad";info.textContent="Paste your ..._forever_\\Interface\\AddOns folder below.";}
  else if(!s.kuiFound){info.className="msg bad";info.textContent="K-UI isn't in this folder. Is it the right game folder?";}
- else{info.className="msg good";info.textContent=s.installed?"K-UI found. Prices installed.":"K-UI found.";}
+ else{info.className="msg good";info.textContent=(s.installed?"K-UI found. Prices installed":"K-UI found")+(s.inKui?" in its own folder.":" (as a separate addon: update K-UI to 1.0.369 to keep them in its folder).");}
  $("openDir").disabled=!s.addonsDir;
  $("autoRow").style.display=s.canAutostart?"":"none";
  if(document.activeElement!==$("auto")) $("auto").checked=s.autostart;

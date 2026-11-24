@@ -117,3 +117,54 @@ func TestConfigDefaults(t *testing.T) {
 		t.Fatal("addonsDir not saved")
 	}
 }
+
+func TestCheckWritesIntoKUIAndRemovesHelper(t *testing.T) {
+	srv := feed(t, "KUI_PRICE_DATA = {}\n", false)
+	defer srv.Close()
+	dir := t.TempDir()
+	kui := filepath.Join(dir, KUIFolder)
+	os.MkdirAll(kui, 0o755)
+	os.WriteFile(filepath.Join(kui, KUIFolder+".toc"), []byte("## Interface: 16001\nKMarketAuction.lua\nKMarketPriceData.lua\nKMarketPrices.lua\n"), 0o644)
+	os.WriteFile(filepath.Join(kui, PriceFile), []byte("\n"), 0o644)
+	helper := filepath.Join(dir, HelperAddon)
+	os.MkdirAll(helper, 0o755)
+	os.WriteFile(filepath.Join(helper, HelperAddon+".toc"), []byte(helperToc), 0o644)
+	os.WriteFile(filepath.Join(helper, "Data.lua"), []byte("old"), 0o644)
+	s := &Syncer{FeedURL: srv.URL + "/", AddOnsDir: dir, Client: srv.Client()}
+
+	res, err := s.Check()
+	if err != nil || !res.Updated {
+		t.Fatalf("check: %+v %v", res, err)
+	}
+	got, _ := os.ReadFile(filepath.Join(kui, PriceFile))
+	if string(got) != "KUI_PRICE_DATA = {}\n" {
+		t.Fatalf("%s = %q", PriceFile, got)
+	}
+	if _, err := os.Stat(helper); !os.IsNotExist(err) {
+		t.Fatalf("old helper addon should be gone: %v", err)
+	}
+	// A K-UI update puts the empty file back: the next check rewrites it.
+	os.WriteFile(filepath.Join(kui, PriceFile), []byte("\n"), 0o644)
+	if res, err = s.Check(); err != nil || !res.Updated {
+		t.Fatalf("rewrite after K-UI update: %+v %v", res, err)
+	}
+}
+
+func TestHelperWithOtherFilesIsKept(t *testing.T) {
+	srv := feed(t, "KUI_PRICE_DATA = {}\n", false)
+	defer srv.Close()
+	dir := t.TempDir()
+	kui := filepath.Join(dir, KUIFolder)
+	os.MkdirAll(kui, 0o755)
+	os.WriteFile(filepath.Join(kui, KUIFolder+".toc"), []byte("KMarketPriceData.lua\n"), 0o644)
+	helper := filepath.Join(dir, HelperAddon)
+	os.MkdirAll(helper, 0o755)
+	os.WriteFile(filepath.Join(helper, "Notes.txt"), []byte("mine"), 0o644)
+	s := &Syncer{FeedURL: srv.URL + "/", AddOnsDir: dir, Client: srv.Client()}
+	if _, err := s.Check(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(helper, "Notes.txt")); err != nil {
+		t.Fatal("a helper folder holding other files must be left alone")
+	}
+}
