@@ -87,8 +87,8 @@ def token():
     return json.loads(http(req))["access_token"]
 
 
-def get(tok, path):
-    q = urllib.parse.urlencode({"namespace": NAMESPACE, "locale": "en_US"})
+def get(tok, path, namespace=NAMESPACE):
+    q = urllib.parse.urlencode({"namespace": namespace, "locale": "en_US"})
     req = urllib.request.Request(
         "%s%s?%s" % (API, path, q),
         headers={"Authorization": "Bearer " + tok, "Accept-Encoding": "gzip"})
@@ -252,8 +252,38 @@ def probe():
               % (hid, h.get("name"), counts[0], counts[1], sample))
 
 
+def recipes(profession="Enchanting"):
+    """Prints every recipe of one profession as JSON (name, crafted item,
+    reagents), from the static Forever namespace. Writes nothing."""
+    tok = token()
+    ns = "static-forever-" + REGION
+    index = get(tok, "/data/wow/profession/index", ns)
+    prof = next((p for p in index.get("professions", []) if p.get("name") == profession), None)
+    if not prof:
+        sys.exit("no %s in %s" % (profession, [p.get("name") for p in index.get("professions", [])]))
+    out = []
+    for tier in get(tok, "/data/wow/profession/%d" % prof["id"], ns).get("skill_tiers", []):
+        for cat in get(tok, "/data/wow/profession/%d/skill-tier/%d" % (prof["id"], tier["id"]), ns).get("categories", []):
+            for r in cat.get("recipes", []):
+                try:
+                    d = get(tok, "/data/wow/recipe/%d" % r["id"], ns)
+                except urllib.error.HTTPError as e:
+                    out.append({"recipe": r["id"], "name": r.get("name"), "error": e.code})
+                    continue
+                out.append({
+                    "recipe": r["id"], "name": d.get("name"), "tier": tier.get("name"),
+                    "item": (d.get("crafted_item") or {}).get("id"),
+                    "qty": (d.get("crafted_quantity") or {}).get("value"),
+                    "reagents": [[x["reagent"]["id"], x["reagent"].get("name"), x.get("quantity")]
+                                 for x in d.get("reagents", [])],
+                })
+    print(json.dumps(out, indent=1))
+
+
 if __name__ == "__main__":
     if sys.argv[1:2] == ["--probe"]:
         probe()
+    elif sys.argv[1:2] == ["--recipes"]:
+        recipes(*sys.argv[2:3])
     else:
         main(sys.argv[1] if len(sys.argv) > 1 else "out")
