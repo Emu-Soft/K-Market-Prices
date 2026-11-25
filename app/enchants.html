@@ -61,20 +61,27 @@ summary{cursor:pointer;font-weight:700;padding:8px 0}
 table{border-collapse:collapse;width:100%;font-size:15px}
 th,td{padding:5px 8px;border-top:1px solid var(--line);text-align:left}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-td.none{color:var(--muted)}
+td.none,td.low{color:var(--muted)}
+.tip{position:fixed;z-index:20;pointer-events:none;background:#0b0f0f;border:1px solid var(--gold);border-radius:6px;padding:8px 10px;font-size:14px;min-width:240px;max-width:340px;box-shadow:0 6px 18px #000a}
+.tip h3{margin:0 0 4px;font-size:15px;color:var(--gold)}
+.tip table{font-size:13.5px}
+.tip td{border:0;padding:1px 4px}
+.tip tr.sum td{border-top:1px solid var(--line);font-weight:700;padding-top:4px}
+.tip .miss{color:var(--warn)}
+.tip p{margin:4px 0 0;color:var(--muted);font-size:13px}
 .tablewrap{overflow-x:auto}
 </style></head>
 <body>
 <div class="wrap">
 <header>
- <div><h1>Enchant Stack Planner</h1><p class="sub">Level 40 enchants for every class and spec, priced from the auction house.</p></div>
+ <div><h1>Enchant Stack Planner</h1><p class="sub">Level 40 enchants for every class and spec. Each enchant costs what its mats cost on the auction house; hover one to see them.</p></div>
  <div class="status" id="status" aria-live="polite"></div>
 </header>
 <div class="bar">
  <div class="tabs" id="tiers" role="group" aria-label="Budget tier"></div>
  <div class="chips" id="classes" role="group" aria-label="Class filter"></div>
  <div class="opts">
-  <label>Prices <select id="source"><option value="live">Auction house</option><option value="sheet">Sheet prices</option></select></label>
+  <label>Prices <select id="source"><option value="live">Auction house (mats)</option><option value="sheet">Sheet prices</option></select></label>
   <label id="houseWrap">House <select id="house"></select></label>
   <label id="basisWrap">Price <select id="basis"><option value="min">Lowest buyout</option><option value="market">Market value</option><option value="avg">7-day average</option></select></label>
   <label id="neckWrap"><input type="checkbox" id="neck" checked> Include neck enchant</label>
@@ -84,10 +91,11 @@ td.none{color:var(--muted)}
 <main id="out"></main>
 <details class="panel" id="listPanel">
  <summary>Price list</summary>
- <p>Items with no listings in the snapshot show the sheet price, underlined with dots.</p>
+ <p>Enchants are priced as the sum of their mats; the armor kits are sold as they are. When a mat has no listings, that enchant shows the sheet price, underlined with dots.</p>
  <div class="tablewrap"><table id="plist"></table></div>
 </details>
 </div>
+<div class="tip" id="tip" hidden></div>
 <script>
 const DATA = {{DATA}};
 const ICONS = DATA.icons;
@@ -113,13 +121,33 @@ function money(g, withCopper) {
 }
 function house() { return feed && feed.houses ? (feed.houses.find(h => h.faction === state.house) || feed.houses[0]) : null; }
 function live() { return state.source === "live" && house() != null; }
-// {g: gold, fb: true when the sheet price stands in for a missing listing, qty}
+// Copper for one unit of an item in the chosen house and basis, or 0.
+function unit(id) { const e = house().prices[id]; return e && e[state.basis] > 0 ? e[state.basis] : 0; }
+// {g: gold, fb: true when the sheet price stands in, qty: listed (kits),
+//  mats: [{id, name, n, c: copper each or 0}] for enchants}
 function priceOf(id) {
-  const base = DATA.baseline[id];
-  if (!live()) return { g: base, fb: false };
-  const e = house().prices[id];
-  const c = e ? e[state.basis] : 0;
-  return c > 0 ? { g: c / 10000, fb: false, qty: e.qty } : { g: base, fb: true, qty: 0 };
+  const base = DATA.baseline[id], it = items[id];
+  if (!live()) return { g: base, fb: false, mats: it.mats && it.mats.map(([mid, name, n]) => ({ id: mid, name, n, c: 0 })) };
+  if (it.mats) {
+    const mats = it.mats.map(([mid, name, n]) => ({ id: mid, name, n, c: unit(mid) }));
+    const ok = mats.every(m => m.c > 0);
+    return { g: ok ? mats.reduce((t, m) => t + m.n * m.c, 0) / 10000 : base, fb: !ok, mats };
+  }
+  const c = unit(id);
+  return c > 0 ? { g: c / 10000, fb: false, qty: house().prices[id].qty } : { g: base, fb: true, qty: 0 };
+}
+function tipHTML(id) {
+  const it = items[id], p = priceOf(id), on = live();
+  let h = `<h3>${esc(it.name)}</h3>`;
+  if (p.mats) {
+    h += `<table>` + p.mats.map(m => `<tr><td>${m.n} \u00d7 ${esc(m.name)}</td>${on ? (m.c ? `<td class="n">${money(m.c / 10000, true)} each</td><td class="n">${money(m.n * m.c / 10000, true)}</td>` : `<td class="n miss" colspan="2">not listed</td>`) : ""}</tr>`).join("");
+    if (on && !p.fb) h += `<tr class="sum"><td>Mats total</td><td></td><td class="n">${money(p.g, true)}</td></tr>`;
+    h += `</table>`;
+    h += on ? (p.fb ? `<p>A mat isn't listed, so this shows the sheet price: ${money(DATA.baseline[id], true)}.</p>` : `<p>${esc(house().faction)} prices, ${$("basis").selectedOptions[0].text.toLowerCase()}. Add the enchanter's tip.</p>`) : `<p>Sheet price: ${money(DATA.baseline[id], true)}.</p>`;
+  } else {
+    h += on ? (p.fb ? `<p>Not listed in this snapshot, so this shows the sheet price.</p>` : `<p>Sold as it is: ${money(p.g, true)} each, ${p.qty} listed.</p>`) : `<p>Sheet price.</p>`;
+  }
+  return h;
 }
 
 function renderControls() {
@@ -150,7 +178,7 @@ function renderStatus() {
     const old = Date.now() / 1000 - feed.t > 6 * 3600;
     html = `<span class="pill ${old ? "stale" : "live"}">${esc(house().faction)} auction house, ${when} (${ago(feed.t)})</span>`;
     const missing = DATA.items.filter(i => priceOf(i.id).fb).length;
-    if (missing) html += `<span class="pill stale" title="These items had no listings in the snapshot">${missing} of ${DATA.items.length} not listed, sheet price shown</span>`;
+    if (missing) html += `<span class="pill stale" title="A mat or kit had no listings in the snapshot">${missing} of ${DATA.items.length} missing a listing, sheet price shown</span>`;
   } else if (state.source === "live") {
     html = `<span class="pill stale">${esc(feed && feed.error ? feed.error : "Loading prices...")} Showing sheet prices.</span>`;
   } else {
@@ -160,6 +188,7 @@ function renderStatus() {
 }
 
 function render() {
+  $("tip").hidden = true;
   renderControls(); renderStatus();
   const t = DATA.tiers.find(t => t.key === state.tier);
   $("notes").hidden = !t.notes.length;
@@ -176,8 +205,7 @@ function render() {
         const it = items[c.item], p = priceOf(c.item), off = i === neckIdx && !state.neck;
         total += off ? 0 : p.g; if (i === neckIdx) neckCost = p.g;
         const over = t.cap != null && p.g > t.cap;
-        const tip = p.fb ? "Not listed in this snapshot: sheet price" : over ? "Over this tier's limit" : live() ? p.qty + " listed" : "";
-        return `<div class="cell${off ? " neckoff" : ""}" title="${esc(it.name)}"><span class="ic q${it.quality}" style="background-image:url(${ICONS.item[it.icon]})"></span><span>${esc(c.label.replace(" Thick Armor Kit", " Kit").replace(" (2H)", " 2H"))}</span><span class="p${p.fb ? " fb" : ""}${over ? " over" : ""}" title="${tip}">${money(p.g)}</span></div>`;
+        return `<div class="cell${off ? " neckoff" : ""}" data-item="${c.item}"><span class="ic q${it.quality}" style="background-image:url(${ICONS.item[it.icon]})"></span><span>${esc(c.label.replace(" Thick Armor Kit", " Kit").replace(" (2H)", " 2H"))}</span><span class="p${p.fb ? " fb" : ""}${over ? " over" : ""}">${money(p.g)}</span></div>`;
       }).join("");
       return `<div class="row"><div class="spec">${esc(r.spec)}</div>${cells}<div class="total"><b>${money(total, true)}</b>${neckIdx >= 0 && r.cells[neckIdx] && state.neck ? `<small>${money(total - neckCost, true)} without neck</small>` : ""}</div></div>`;
     }).join("");
@@ -192,9 +220,10 @@ function renderList() {
   const rows = DATA.items.slice().sort((a, b) => a.name.localeCompare(b.name)).map(i => {
     const p = priceOf(i.id), base = DATA.baseline[i.id];
     const diff = on && !p.fb ? (p.g - base) / base * 100 : null;
-    return `<tr><td>${esc(i.name)}</td><td class="n">${money(base, true)}</td>${on ? (p.fb ? `<td class="n none">not listed</td><td></td><td></td>` : `<td class="n">${money(p.g, true)}</td><td class="n">${p.qty}</td><td class="n">${(diff > 0 ? "+" : "") + diff.toFixed(0)}%</td>`) : ""}</tr>`;
+    const what = i.mats ? i.mats.map(([, name, n]) => n + " " + name).join(", ") : "sold as it is";
+    return `<tr data-item="${i.id}"><td>${esc(i.name)}</td><td class="low">${esc(what)}</td><td class="n">${money(base, true)}</td>${on ? (p.fb ? `<td class="n none">missing a listing</td><td></td>` : `<td class="n">${money(p.g, true)}</td><td class="n">${(diff > 0 ? "+" : "") + diff.toFixed(0)}%</td>`) : ""}</tr>`;
   }).join("");
-  $("plist").innerHTML = `<tr><th>Item</th><th class="n">Sheet</th>${on ? `<th class="n">Auction house</th><th class="n">Listed</th><th class="n">Change</th>` : ""}</tr>${rows}`;
+  $("plist").innerHTML = `<tr><th>Item</th><th>Made from</th><th class="n">Sheet</th>${on ? `<th class="n">Auction house</th><th class="n">Change</th>` : ""}</tr>${rows}`;
 }
 
 async function kmRefresh() {
@@ -209,6 +238,16 @@ document.addEventListener("click", e => {
 });
 [["source", "value"], ["house", "value"], ["basis", "value"], ["neck", "checked"]].forEach(([id, prop]) =>
   $(id).addEventListener("change", e => { state[id] = e.target[prop]; save(); render(); }));
+const tip = $("tip");
+document.addEventListener("mousemove", e => {
+  const el = e.target.closest("[data-item]");
+  if (!el) { tip.hidden = true; return; }
+  if (tip.dataset.item !== el.dataset.item || tip.hidden) { tip.innerHTML = tipHTML(+el.dataset.item); tip.dataset.item = el.dataset.item; tip.hidden = false; }
+  const r = tip.getBoundingClientRect();
+  tip.style.left = Math.max(8, Math.min(e.clientX + 16, innerWidth - r.width - 8)) + "px";
+  tip.style.top = (e.clientY + 18 + r.height > innerHeight ? e.clientY - r.height - 12 : e.clientY + 18) + "px";
+});
+document.addEventListener("mouseleave", () => { tip.hidden = true; });
 render();
 kmRefresh();
 </script>

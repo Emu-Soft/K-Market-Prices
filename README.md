@@ -25,7 +25,7 @@ For each item, in copper per unit:
 1. Download `K-Market-Prices.exe` from the [latest release](https://github.com/Emu-Soft/K-Market-Prices/releases/latest) and run it. Its window shows when prices were last updated, how many items each auction house has, and the AddOns folder it writes to. A gold K coin stays in the tray.
 2. It finds the WoW: Forever folder with K-UI in it. If it doesn't, paste your `..._forever_\Interface\AddOns` folder into the window and press **Use this folder**.
 3. Turn on **Start with Windows** to keep prices current without thinking about it. Closing the window leaves it running in the tray; click the coin to open it again.
-4. Press **Enchants** (or pick it from the tray menu) for the Enchant Stack Planner: level 40 enchants for every class and spec, in budget tiers, with a total per spec. It prices each enchant from the latest snapshot for the auction house you pick (lowest buyout, market value or 7-day average). Anything with no listings shows the planner's sheet price, underlined with dots.
+4. Press **Enchants** (or pick it from the tray menu) for the Enchant Stack Planner: level 40 enchants for every class and spec, in budget tiers, with a total per spec. Enchants aren't sold on the auction house, so each one is priced as the sum of its mats from the latest snapshot for the auction house you pick (lowest buyout, market value or 7-day average); hover an enchant to see its mats. The armor kits are priced as they are. If a mat has no listings, the planner's sheet price shows instead, underlined with dots. The mats come from the Battle.net recipe data (`job/fetch.py --recipes Enchanting`).
 
 The window uses Microsoft Edge WebView2, which Windows 10 and 11 already have.
 

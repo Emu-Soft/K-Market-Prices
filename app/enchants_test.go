@@ -15,7 +15,7 @@ KUI_PRICE_DATA = {
 		[113] = { faction = "Horde", t = 1795605444,
 			d = "2318,96,98,102,8548;252463,5791,5791,6060,196" },
 		[110] = { faction = "Alliance", t = 1795605444,
-			d = "2318,90,94,85,9834;252462,5948,5948,5188,469;252463,7555,7555,5413,130;bad,row" },
+			d = "2318,90,94,85,9834;11174,3600,3650,3700,212;252462,5948,5948,5188,469;252463,7555,7555,5413,130;bad,row" },
 	},
 }
 `
@@ -26,11 +26,14 @@ func TestParsePricesKeepsOnlyPlannerItems(t *testing.T) {
 		t.Fatalf("got %+v", p)
 	}
 	a := p.Houses[0]
-	if a.ID != 110 || a.Faction != "Alliance" || len(a.Prices) != 2 {
+	if a.ID != 110 || a.Faction != "Alliance" || len(a.Prices) != 3 {
 		t.Fatalf("Alliance = %+v", a)
 	}
 	if got := a.Prices["252463"]; got != (ItemPrice{Min: 7555, Market: 7555, Avg: 5413, Qty: 130}) {
 		t.Fatalf("Forceful kit = %+v", got)
+	}
+	if a.Prices["11174"].Qty != 212 {
+		t.Fatal("Lesser Nether Essence is a mat for several enchants")
 	}
 	if _, ok := a.Prices["2318"]; ok {
 		t.Fatal("Light Leather is not a planner item")
@@ -45,8 +48,10 @@ func TestPlannerDataIsComplete(t *testing.T) {
 			} `json:"rows"`
 		} `json:"tiers"`
 		Items []struct {
-			ID   int64 `json:"id"`
-			Icon int64 `json:"icon"`
+			ID   int64   `json:"id"`
+			Name string  `json:"name"`
+			Icon int64   `json:"icon"`
+			Mats [][]any `json:"mats"`
 		} `json:"items"`
 		Baseline map[string]float64               `json:"baseline"`
 		Icons    struct{ Item map[string]string } `json:"icons"`
@@ -67,6 +72,9 @@ func TestPlannerDataIsComplete(t *testing.T) {
 	for _, it := range d.Items {
 		if d.Baseline[jsonID(it.ID)] <= 0 {
 			t.Errorf("item %d has no sheet price", it.ID)
+		}
+		if strings.HasPrefix(it.Name, "Enchant ") && len(it.Mats) == 0 {
+			t.Errorf("%s has no mats", it.Name)
 		}
 		if !strings.HasPrefix(d.Icons.Item[jsonID(it.Icon)], "data:image/") {
 			t.Errorf("item %d has no icon", it.ID)

@@ -45,17 +45,25 @@ type PlannerPrices struct {
 
 var houseLine = regexp.MustCompile(`\[(\d+)\] = \{ faction = "([^"]*)", t = (\d+),\s*d = "([^"]*)"`)
 
-// plannerItems is the set of item IDs the planner prices.
+// plannerItems is the set of item IDs the planner prices: the items sold as
+// they are (armor kits) and the mats every enchant is made from, since
+// enchants themselves are never listed.
 func plannerItems() map[int64]bool {
 	var d struct {
 		Items []struct {
-			ID int64 `json:"id"`
+			ID   int64   `json:"id"`
+			Mats [][]any `json:"mats"` // [itemID, name, quantity]
 		} `json:"items"`
 	}
 	_ = json.Unmarshal([]byte(enchantsData), &d)
-	want := make(map[int64]bool, len(d.Items))
+	want := map[int64]bool{}
 	for _, it := range d.Items {
 		want[it.ID] = true
+		for _, m := range it.Mats {
+			if id, ok := m[0].(float64); ok {
+				want[int64(id)] = true
+			}
+		}
 	}
 	return want
 }
