@@ -111,13 +111,21 @@ func KUIReadsOwnFile(addons string) bool {
 	return err == nil && strings.Contains(string(toc), PriceFile)
 }
 
-// Target is the file the prices go to, set up and ready: PriceFile inside
-// K-UI's folder (removing the old helper addon), or the helper addon's
-// Data.lua for an older K-UI.
+// PricePath is where the prices live in this AddOns folder: PriceFile inside
+// K-UI's folder, or the helper addon's Data.lua for an older K-UI.
+func PricePath(addons string) string {
+	if KUIReadsOwnFile(addons) {
+		return filepath.Join(addons, KUIFolder, PriceFile)
+	}
+	return filepath.Join(addons, HelperAddon, "Data.lua")
+}
+
+// Target is PricePath, set up and ready: the old helper addon is removed
+// once K-UI reads its own file, and created while it doesn't.
 func (s *Syncer) Target() (string, error) {
 	if KUIReadsOwnFile(s.AddOnsDir) {
 		s.removeHelper()
-		return filepath.Join(s.AddOnsDir, KUIFolder, PriceFile), nil
+		return PricePath(s.AddOnsDir), nil
 	}
 	dir := filepath.Join(s.AddOnsDir, HelperAddon)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -129,7 +137,7 @@ func (s *Syncer) Target() (string, error) {
 			return "", err
 		}
 	}
-	return filepath.Join(dir, "Data.lua"), nil
+	return PricePath(s.AddOnsDir), nil
 }
 
 // removeHelper deletes the old helper addon folder, but only when it holds

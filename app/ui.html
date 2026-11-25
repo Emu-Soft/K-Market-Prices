@@ -57,7 +57,7 @@ a{color:var(--gold);cursor:pointer;text-decoration:none}
   <div class="row"><span>Region</span><span id="region">-</span></div>
   <div class="chips" id="houses"></div>
   <div class="row" style="margin-top:6px"><span>Last check</span><span id="checked">-</span></div>
-  <div class="btns"><button class="primary" id="refresh">Refresh now</button></div>
+  <div class="btns"><button class="primary" id="refresh">Refresh now</button><button id="enchants" title="Level 40 enchants for every class and spec, at today's prices">Enchants</button></div>
  </div>
  <div class="card">
   <div class="title">AddOns folder</div>
@@ -100,6 +100,7 @@ async function kmRefresh(){
 window.kmRefresh=kmRefresh;
 $("refresh").onclick=()=>{kmCheck();setTimeout(kmRefresh,100)};
 $("openDir").onclick=()=>kmOpenFolder();
+$("enchants").onclick=()=>kmEnchants();
 $("saveDir").onclick=async()=>{const e=await kmSetFolder($("dirInput").value);$("dirErr").textContent=e||"";if(!e){$("dirInput").value="";}kmRefresh();};
 $("auto").onchange=async e=>{const r=await kmAutostart(e.target.checked);if(r){$("dirErr").textContent=r;}kmRefresh();};
 $("repo").onclick=()=>kmOpenLink("https://github.com/Emu-Soft/K-Market-Prices");

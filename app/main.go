@@ -66,6 +66,7 @@ func onReady(app *App, showWindow bool) {
 	status := systray.AddMenuItem("Starting...", "")
 	status.Disable()
 	update := systray.AddMenuItem("Update now", "Check for new prices")
+	enchants := systray.AddMenuItem("Enchants", "Enchant prices for every class and spec")
 	folder := systray.AddMenuItem("Open AddOns folder", "")
 	systray.AddSeparator()
 	quit := systray.AddMenuItem("Quit", "")
@@ -100,12 +101,14 @@ func onReady(app *App, showWindow bool) {
 				go app.Check()
 			case <-open.ClickedCh:
 				showMainWindow(app)
+			case <-enchants.ClickedCh:
+				go showEnchantsWindow(app)
 			case <-folder.ClickedCh:
 				if d := app.Status().AddOnsDir; d != "" {
 					openPath(d)
 				}
 			case <-quit.ClickedCh:
-				closeMainWindow()
+				closeAllWindows()
 				systray.Quit()
 				return
 			}

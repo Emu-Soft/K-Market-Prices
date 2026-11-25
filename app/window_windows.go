@@ -19,9 +19,6 @@ import (
 var uiHTML string
 
 var (
-	winMu sync.Mutex
-	win   webview2.WebView
-
 	user32         = windows.NewLazySystemDLL("user32.dll")
 	setForeground  = user32.NewProc("SetForegroundWindow")
 	showWindowProc = user32.NewProc("ShowWindow")
@@ -30,18 +27,34 @@ var (
 	wmClose        = uintptr(0x0010)
 )
 
-// showMainWindow opens the window, or brings it to the front when it is
-// already open. Each window runs its own message loop on a locked thread.
-func showMainWindow(app *App) {
-	winMu.Lock()
-	if win != nil {
-		h := uintptr(win.Window())
-		winMu.Unlock()
+// page is one app window. Each open window runs its own message loop on a
+// locked thread.
+type page struct {
+	mu            sync.Mutex
+	w             webview2.WebView
+	title         string
+	width, height int
+	hint          webview2.Hint
+	html          func() string
+	bind          func(webview2.WebView)
+}
+
+var (
+	mainPage     = &page{title: "K-Market Prices", width: 460, height: 760, hint: webview2.HintFixed}
+	enchantsPage = &page{title: "K-Market Prices: Enchants", width: 1180, height: 860, hint: webview2.HintNone}
+)
+
+// show opens the window, or brings it to the front when it is already open.
+func (p *page) show() {
+	p.mu.Lock()
+	if p.w != nil {
+		h := uintptr(p.w.Window())
+		p.mu.Unlock()
 		_, _, _ = showWindowProc.Call(h, swRestore)
 		_, _, _ = setForeground.Call(h)
 		return
 	}
-	winMu.Unlock()
+	p.mu.Unlock()
 	ready := make(chan struct{})
 	go func() {
 		runtime.LockOSThread()
@@ -50,7 +63,7 @@ func showMainWindow(app *App) {
 			AutoFocus: true,
 			DataPath:  filepath.Join(filepath.Dir(configPath()), "webview"),
 			WindowOptions: webview2.WindowOptions{
-				Title: "K-Market Prices", Width: 460, Height: 760, IconId: 1, Center: true,
+				Title: p.title, Width: uint(p.width), Height: uint(p.height), IconId: 1, Center: true,
 			},
 		})
 		if w == nil {
@@ -59,42 +72,74 @@ func showMainWindow(app *App) {
 			openPath("https://developer.microsoft.com/microsoft-edge/webview2/")
 			return
 		}
-		w.SetSize(460, 760, webview2.HintFixed)
-		bind(w, app)
-		w.SetHtml(strings.Replace(uiHTML, "{{ICON}}", base64.StdEncoding.EncodeToString(iconPNG), 1))
-		winMu.Lock()
-		win = w
-		winMu.Unlock()
+		w.SetSize(p.width, p.height, p.hint)
+		p.bind(w)
+		w.SetHtml(p.html())
+		p.mu.Lock()
+		p.w = w
+		p.mu.Unlock()
 		close(ready)
 		w.Run()
-		winMu.Lock()
-		win = nil
-		winMu.Unlock()
+		p.mu.Lock()
+		p.w = nil
+		p.mu.Unlock()
 		w.Destroy()
 	}()
 	<-ready
 }
 
-func closeMainWindow() {
-	winMu.Lock()
-	w := win
-	winMu.Unlock()
+func (p *page) close() {
+	p.mu.Lock()
+	w := p.w
+	p.mu.Unlock()
 	if w != nil {
 		_, _, _ = postMessageW.Call(uintptr(w.Window()), wmClose, 0, 0)
 	}
 }
 
-// windowRefresh asks the page to pull the status again.
-func windowRefresh() {
-	winMu.Lock()
-	w := win
-	winMu.Unlock()
+// refresh asks the page to pull its data again.
+func (p *page) refresh() {
+	p.mu.Lock()
+	w := p.w
+	p.mu.Unlock()
 	if w != nil {
 		w.Dispatch(func() { w.Eval("window.kmRefresh && window.kmRefresh()") })
 	}
 }
 
-func bind(w webview2.WebView, app *App) {
+func showMainWindow(app *App) {
+	mainPage.html = func() string {
+		return strings.Replace(uiHTML, "{{ICON}}", base64.StdEncoding.EncodeToString(iconPNG), 1)
+	}
+	mainPage.bind = func(w webview2.WebView) { bindMain(w, app) }
+	mainPage.show()
+}
+
+func showEnchantsWindow(app *App) {
+	enchantsPage.html = func() string { return strings.Replace(enchantsHTML, "{{DATA}}", enchantsData, 1) }
+	enchantsPage.bind = func(w webview2.WebView) {
+		_ = w.Bind("kmEnchantPrices", func() string {
+			b, _ := json.Marshal(app.EnchantPrices())
+			return string(b)
+		})
+	}
+	enchantsPage.show()
+}
+
+func closeMainWindow() { mainPage.close() }
+
+func closeAllWindows() {
+	mainPage.close()
+	enchantsPage.close()
+}
+
+// windowRefresh tells every open window the state changed.
+func windowRefresh() {
+	mainPage.refresh()
+	enchantsPage.refresh()
+}
+
+func bindMain(w webview2.WebView, app *App) {
 	_ = w.Bind("kmStatus", func() string {
 		b, _ := json.Marshal(app.Status())
 		return string(b)
@@ -122,5 +167,6 @@ func bind(w webview2.WebView, app *App) {
 			openPath(url)
 		}
 	})
+	_ = w.Bind("kmEnchants", func() { go showEnchantsWindow(app) })
 	_ = w.Bind("kmHide", func() { closeMainWindow() })
 }

@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8">
+<title>Enchants</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Enchant Stack Planner: a control bar over class cards; each spec is one row of slot cells with a total. */
+:root{--bg:#0e1313;--panel:#161c1c;--raised:#1d2323;--line:#2f3636;--ink:#ecf4f3;--muted:#a9b1b0;--gold:#e0bb00;--gold-soft:#2c2709;--good:#08d36b;--warn:#ff9a5c;
+ --display:"Cinzel",Georgia,serif;--body:"Alegreya Sans","Segoe UI",system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 var(--body)}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 16px 40px}
+h1{font:700 26px/1.15 var(--display);margin:0;color:var(--gold);letter-spacing:.02em}
+.sub{color:var(--muted);margin:4px 0 0}
+header{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:flex-end;justify-content:space-between;margin-bottom:14px}
+.status{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.pill{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:3px 12px;font-size:14px;white-space:nowrap}
+.pill.live{border-color:var(--good);color:var(--good)} .pill.stale{border-color:var(--warn);color:var(--warn)}
+button,select{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,select:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--line);display:grid;gap:10px}
+.tabs,.chips{display:flex;flex-wrap:wrap;gap:6px}
+.tab{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 14px;font-weight:700}
+.tab[aria-pressed=true]{background:var(--gold);border-color:var(--gold);color:#1a1500}
+.chip{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 12px 3px 4px}
+.chip img{width:26px;height:26px;border-radius:50%}
+.chip[aria-pressed=true]{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
+.chip.all{padding-left:12px}
+.opts{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;color:var(--muted);font-size:15px}
+.opts label{display:flex;gap:6px;align-items:center}
+select{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 8px}
+input[type=checkbox]{accent-color:var(--gold)}
+.notes{margin:14px 0 4px;padding:10px 14px;background:var(--gold-soft);border-left:3px solid var(--gold);border-radius:4px}
+.notes p{margin:2px 0}
+.card{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.card h2{display:flex;align-items:center;gap:10px;margin:0;padding:10px 14px;font:700 20px var(--display);border-bottom:1px solid var(--line)}
+.card h2 img{width:36px;height:36px;border-radius:4px}
+.scroller{overflow-x:auto}
+.grid{display:grid;grid-template-columns:150px repeat(var(--n),82px) 120px;min-width:max-content;align-items:start}
+.grid>div{padding:8px 4px}
+.hd{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:14px;color:var(--muted);padding-top:8px}
+.hd img{width:26px;height:26px;border-radius:3px}
+.hd.neck.off{opacity:.4}
+.spec{padding-left:14px!important;font-weight:700;align-self:center}
+.cell{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;font-size:13.5px;line-height:1.15}
+.ic{width:42px;height:42px;border-radius:5px;border:2px solid #9d9d9d;background-size:cover;display:block}
+.ic.q2{border-color:#1eff00}.ic.q3{border-color:#0070dd}.ic.q1{border-color:#c9c9c9}
+.cell .p{font-variant-numeric:tabular-nums;font-weight:700}
+.cell .p.fb{text-decoration:underline dotted;text-underline-offset:3px;opacity:.75}
+.cell .p.over{color:var(--warn)}
+.cell.empty{color:var(--muted);align-self:center;padding-top:14px}
+.cell.neckoff{opacity:.35}
+.total{text-align:right;padding-right:14px!important;align-self:center;font-variant-numeric:tabular-nums}
+.total b{font:700 20px var(--display)}
+.total small{display:block;color:var(--muted);font-size:13px}
+.row{display:contents}
+.row>div{border-top:1px solid var(--line)}
+.g{color:#e0bb00}.s{color:#c7c7c7}.c{color:#d4844e}
+.panel{margin-top:24px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 14px}
+summary{cursor:pointer;font-weight:700;padding:8px 0}
+.panel p{color:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:5px 8px;border-top:1px solid var(--line);text-align:left}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td.none{color:var(--muted)}
+.tablewrap{overflow-x:auto}
+</style></head>
+<body>
+<div class="wrap">
+<header>
+ <div><h1>Enchant Stack Planner</h1><p class="sub">Level 40 enchants for every class and spec, priced from the auction house.</p></div>
+ <div class="status" id="status" aria-live="polite"></div>
+</header>
+<div class="bar">
+ <div class="tabs" id="tiers" role="group" aria-label="Budget tier"></div>
+ <div class="chips" id="classes" role="group" aria-label="Class filter"></div>
+ <div class="opts">
+  <label>Prices <select id="source"><option value="live">Auction house</option><option value="sheet">Sheet prices</option></select></label>
+  <label id="houseWrap">House <select id="house"></select></label>
+  <label id="basisWrap">Price <select id="basis"><option value="min">Lowest buyout</option><option value="market">Market value</option><option value="avg">7-day average</option></select></label>
+  <label id="neckWrap"><input type="checkbox" id="neck" checked> Include neck enchant</label>
+ </div>
+</div>
+<div class="notes" id="notes" hidden></div>
+<main id="out"></main>
+<details class="panel" id="listPanel">
+ <summary>Price list</summary>
+ <p>Items with no listings in the snapshot show the sheet price, underlined with dots.</p>
+ <div class="tablewrap"><table id="plist"></table></div>
+</details>
+</div>
+<script>
+const DATA = {{DATA}};
+const ICONS = DATA.icons;
+const $ = id => document.getElementById(id);
+const items = Object.fromEntries(DATA.items.map(i => [i.id, i]));
+const state = { tier: DATA.tiers[0].key, cls: "All", source: "live", house: "Alliance", basis: "min", neck: true };
+let feed = null; // {t, houses:[{id, faction, prices:{id:{min,market,avg,qty}}}], error}
+
+const KEEP = ["tier", "cls", "source", "house", "basis", "neck"];
+try { const s = JSON.parse(localStorage.getItem("km-enchants") || "null"); if (s) KEEP.forEach(k => { if (k in s) state[k] = s[k]; }); } catch (e) {}
+function save() { try { localStorage.setItem("km-enchants", JSON.stringify(Object.fromEntries(KEEP.map(k => [k, state[k]])))); } catch (e) {} }
+if (!DATA.tiers.some(t => t.key === state.tier)) state.tier = DATA.tiers[0].key;
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function money(g, withCopper) {
+  const c = Math.round(g * 10000), gold = Math.floor(c / 10000), s = Math.floor(c % 10000 / 100), cp = c % 100;
+  const parts = [];
+  if (gold) parts.push(`<span class="g">${gold.toLocaleString("en-GB")}g</span>`);
+  if (s || (!gold && !withCopper)) parts.push(`<span class="s">${s}s</span>`);
+  if (withCopper && cp) parts.push(`<span class="c">${cp}c</span>`);
+  if (!parts.length) parts.push(`<span class="c">${cp}c</span>`);
+  return parts.join(" ");
+}
+function house() { return feed && feed.houses ? (feed.houses.find(h => h.faction === state.house) || feed.houses[0]) : null; }
+function live() { return state.source === "live" && house() != null; }
+// {g: gold, fb: true when the sheet price stands in for a missing listing, qty}
+function priceOf(id) {
+  const base = DATA.baseline[id];
+  if (!live()) return { g: base, fb: false };
+  const e = house().prices[id];
+  const c = e ? e[state.basis] : 0;
+  return c > 0 ? { g: c / 10000, fb: false, qty: e.qty } : { g: base, fb: true, qty: 0 };
+}
+
+function renderControls() {
+  $("tiers").innerHTML = DATA.tiers.map(t => `<button class="tab" type="button" data-tier="${t.key}" aria-pressed="${t.key === state.tier}">${t.label}</button>`).join("");
+  const classes = ["All", ...Object.keys(DATA.classColors)];
+  $("classes").innerHTML = classes.map(c => c === "All"
+    ? `<button class="chip all" type="button" data-cls="All" aria-pressed="${state.cls === "All"}">All classes</button>`
+    : `<button class="chip" type="button" data-cls="${c}" aria-pressed="${state.cls === c}"><img alt="" src="${ICONS.class[c]}">${c}</button>`).join("");
+  const houses = feed && feed.houses ? feed.houses : [];
+  $("house").innerHTML = houses.map(h => `<option value="${esc(h.faction)}">${esc(h.faction)}</option>`).join("");
+  const h = house(); if (h) $("house").value = h.faction;
+  $("source").value = state.source;
+  $("houseWrap").hidden = $("basisWrap").hidden = !live();
+  $("basis").value = state.basis;
+  const t = DATA.tiers.find(t => t.key === state.tier);
+  $("neckWrap").hidden = !t.slots.includes("Neck");
+  $("neck").checked = state.neck;
+}
+
+function ago(t) {
+  const m = Math.round((Date.now() / 1000 - t) / 60);
+  return m < 2 ? "just now" : m < 60 ? m + " min ago" : m < 2880 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago";
+}
+function renderStatus() {
+  let html;
+  if (live()) {
+    const when = new Date(feed.t * 1000).toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    const old = Date.now() / 1000 - feed.t > 6 * 3600;
+    html = `<span class="pill ${old ? "stale" : "live"}">${esc(house().faction)} auction house, ${when} (${ago(feed.t)})</span>`;
+    const missing = DATA.items.filter(i => priceOf(i.id).fb).length;
+    if (missing) html += `<span class="pill stale" title="These items had no listings in the snapshot">${missing} of ${DATA.items.length} not listed, sheet price shown</span>`;
+  } else if (state.source === "live") {
+    html = `<span class="pill stale">${esc(feed && feed.error ? feed.error : "Loading prices...")} Showing sheet prices.</span>`;
+  } else {
+    html = `<span class="pill stale">Prices from the original sheet. Its date is unknown.</span>`;
+  }
+  $("status").innerHTML = html;
+}
+
+function render() {
+  renderControls(); renderStatus();
+  const t = DATA.tiers.find(t => t.key === state.tier);
+  $("notes").hidden = !t.notes.length;
+  $("notes").innerHTML = t.notes.map(n => `<p>${esc(n)}</p>`).join("");
+  const n = t.slots.length, neckIdx = t.slots.indexOf("Neck");
+  const groups = [];
+  t.rows.forEach(r => { if (state.cls !== "All" && r.cls !== state.cls) return; let g = groups.find(g => g.cls === r.cls); if (!g) groups.push(g = { cls: r.cls, rows: [] }); g.rows.push(r); });
+  $("out").innerHTML = groups.map(g => {
+    const head = `<div></div>` + t.slots.map(s => `<div class="hd ${s === "Neck" ? "neck" + (state.neck ? "" : " off") : ""}">${ICONS.slot[s] ? `<img alt="" src="${ICONS.slot[s]}">` : `<span style="width:26px;height:26px"></span>`}${s}</div>`).join("") + `<div class="hd" style="align-items:flex-end;padding-right:14px">Total</div>`;
+    const rows = g.rows.map(r => {
+      let total = 0, neckCost = 0;
+      const cells = r.cells.map((c, i) => {
+        if (!c) return `<div class="cell empty">-</div>`;
+        const it = items[c.item], p = priceOf(c.item), off = i === neckIdx && !state.neck;
+        total += off ? 0 : p.g; if (i === neckIdx) neckCost = p.g;
+        const over = t.cap != null && p.g > t.cap;
+        const tip = p.fb ? "Not listed in this snapshot: sheet price" : over ? "Over this tier's limit" : live() ? p.qty + " listed" : "";
+        return `<div class="cell${off ? " neckoff" : ""}" title="${esc(it.name)}"><span class="ic q${it.quality}" style="background-image:url(${ICONS.item[it.icon]})"></span><span>${esc(c.label.replace(" Thick Armor Kit", " Kit").replace(" (2H)", " 2H"))}</span><span class="p${p.fb ? " fb" : ""}${over ? " over" : ""}" title="${tip}">${money(p.g)}</span></div>`;
+      }).join("");
+      return `<div class="row"><div class="spec">${esc(r.spec)}</div>${cells}<div class="total"><b>${money(total, true)}</b>${neckIdx >= 0 && r.cells[neckIdx] && state.neck ? `<small>${money(total - neckCost, true)} without neck</small>` : ""}</div></div>`;
+    }).join("");
+    const col = DATA.classColors[g.cls] === "FFFFFF" ? "inherit" : "#" + DATA.classColors[g.cls];
+    return `<section class="card"><h2 style="color:${col}"><img alt="" src="${ICONS.class[g.cls]}">${g.cls}</h2><div class="scroller"><div class="grid" style="--n:${n}">${head}${rows}</div></div></section>`;
+  }).join("");
+  renderList();
+}
+
+function renderList() {
+  const on = live();
+  const rows = DATA.items.slice().sort((a, b) => a.name.localeCompare(b.name)).map(i => {
+    const p = priceOf(i.id), base = DATA.baseline[i.id];
+    const diff = on && !p.fb ? (p.g - base) / base * 100 : null;
+    return `<tr><td>${esc(i.name)}</td><td class="n">${money(base, true)}</td>${on ? (p.fb ? `<td class="n none">not listed</td><td></td><td></td>` : `<td class="n">${money(p.g, true)}</td><td class="n">${p.qty}</td><td class="n">${(diff > 0 ? "+" : "") + diff.toFixed(0)}%</td>`) : ""}</tr>`;
+  }).join("");
+  $("plist").innerHTML = `<tr><th>Item</th><th class="n">Sheet</th>${on ? `<th class="n">Auction house</th><th class="n">Listed</th><th class="n">Change</th>` : ""}</tr>${rows}`;
+}
+
+async function kmRefresh() {
+  try { const f = JSON.parse(await kmEnchantPrices()); if (!feed || f.t !== feed.t || f.error) { feed = f; render(); } } catch (e) {}
+}
+window.kmRefresh = kmRefresh;
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-tier]"), c = e.target.closest("[data-cls]");
+  if (t) { state.tier = t.dataset.tier; save(); render(); }
+  if (c) { state.cls = c.dataset.cls; save(); render(); }
+});
+[["source", "value"], ["house", "value"], ["basis", "value"], ["neck", "checked"]].forEach(([id, prop]) =>
+  $(id).addEventListener("change", e => { state[id] = e.target[prop]; save(); render(); }));
+render();
+kmRefresh();
+</script>
+</body></html>
