@@ -1,0 +1,25 @@
+{
+ "v": 1,
+ "region": "us",
+ "ruleset": 1,
+ "t": 1795865009,
+ "sha256": "886eaf7a1d959c8db0d3e695581c556dc86e7147628d97e6c9cd3a2e390891f0",
+ "bytes": 434478,
+ "houses": {
+  "110": {
+   "faction": "Alliance",
+   "items": 7087,
+   "listings": 240348
+  },
+  "113": {
+   "faction": "Horde",
+   "items": 6966,
+   "listings": 267893
+  },
+  "116": {
+   "faction": "Blackwater",
+   "items": 4113,
+   "listings": 40084
+  }
+ }
+}
